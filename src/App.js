@@ -1,13 +1,34 @@
 import React, { useRef, useState, useEffect } from "react";
 import Moveable from "react-moveable";
+import { getPhotos } from "./api/photos";
 
 const App = () => {
   const [moveableComponents, setMoveableComponents] = useState([]);
   const [selected, setSelected] = useState(null);
 
+  const [photos, setPhotos] = useState(null)
+  const [randomPhoto, setRandomPhoto] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [errorState, setErrorState] = useState({ hasError: false })
+
+  useEffect(() => {
+    setLoading(true)
+    getPhotos()
+      .then(data => {
+        setPhotos(data)
+      })
+      .catch(handleError)
+    setLoading(false)
+  }, [])
+
+  const handleError = err => {
+    setErrorState({ hasError: true, message: err.message})
+  }
+
   const addMoveable = () => {
     // Create a new moveable component and add it to the array
     const COLORS = ["red", "blue", "yellow", "green", "purple"];
+    setRandomPhoto(photos[Math.floor(Math.random() * 5000 )].url)
 
     setMoveableComponents([
       ...moveableComponents,
@@ -22,6 +43,10 @@ const App = () => {
       },
     ]);
   };
+
+  const removeMoveables = () => {
+    setMoveableComponents([]);
+  }
 
   const updateMoveable = (id, newComponent, updateEnd = false) => {
     const updatedMoveables = moveableComponents.map((moveable, i) => {
@@ -57,6 +82,7 @@ const App = () => {
   return (
     <main style={{ height : "100vh", width: "100vw" }}>
       <button onClick={addMoveable}>Add Moveable1</button>
+      <button onClick={removeMoveables}>Delete moveables</button>
       <div
         id="parent"
         style={{
@@ -66,15 +92,22 @@ const App = () => {
           width: "80vw",
         }}
       >
+        {
+          errorState === true ?
+            <p>Ocurrió un error!: {errorState.message}</p> :
+            null
+        }
         {moveableComponents.map((item, index) => (
-          <Component
-            {...item}
-            key={index}
-            updateMoveable={updateMoveable}
-            handleResizeStart={handleResizeStart}
-            setSelected={setSelected}
-            isSelected={selected === item.id}
-          />
+            !loading &&
+              <Component
+                {...item}
+                key={index}
+                updateMoveable={updateMoveable}
+                handleResizeStart={handleResizeStart}
+                setSelected={setSelected}
+                isSelected={selected === item.id}
+                randomPhoto={randomPhoto}
+              />
         ))}
       </div>
     </main>
@@ -94,7 +127,7 @@ const Component = ({
   id,
   setSelected,
   isSelected = false,
-  updateEnd,
+  randomPhoto
 }) => {
   const ref = useRef();
 
@@ -106,6 +139,7 @@ const Component = ({
     index,
     color,
     id,
+    randomPhoto
   });
 
   let parent = document.getElementById("parent");
@@ -130,6 +164,7 @@ const Component = ({
       width: newWidth,
       height: newHeight,
       color,
+      randomPhoto
     });
 
     // ACTUALIZAR NODO REFERENCIA
@@ -164,21 +199,15 @@ const Component = ({
     if (positionMaxLeft > parentBounds?.width)
       newWidth = parentBounds?.width - left;
 
-    const { lastEvent } = e;
-    const { drag } = lastEvent;
-    const { beforeTranslate } = drag;
-
-    const absoluteTop = top + beforeTranslate[1];
-    const absoluteLeft = left + beforeTranslate[0];
-
     updateMoveable(
       id,
       {
-        top: absoluteTop,
-        left: absoluteLeft,
+        top,
+        left,
         width: newWidth,
         height: newHeight,
         color,
+        randomPhoto
       },
       true
     );
@@ -196,7 +225,8 @@ const Component = ({
           left: left,
           width: width,
           height: height,
-          background: color,
+          backgroundColor: color,
+          backgroundImage: `url(${randomPhoto})`,
         }}
         onClick={() => setSelected(id)}
       />
@@ -212,6 +242,7 @@ const Component = ({
             width,
             height,
             color,
+            randomPhoto
           });
         }}
         onResize={onResize}
